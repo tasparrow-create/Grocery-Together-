@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Grocery Together" />
+  <meta name="theme-color" content="#ffffff" />
+  <title>Grocery Together</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; background: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #1a1a1a; }
+
+    .app { max-width: 480px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; padding-bottom: env(safe-area-inset-bottom); }
+
+    .header { padding: 56px 18px 0; background: #fff; }
+    .header h1 { font-size: 28px; font-weight: 700; color: #1a1a1a; letter-spacing: -0.5px; }
+    .header p { font-size: 14px; color: #888; margin-top: 3px; }
+
+    .tabs { display: flex; border-bottom: 1px solid #e8e8e8; margin-top: 18px; background: #fff; position: sticky; top: 0; z-index: 10; }
+    .tab { flex: 1; padding: 12px; text-align: center; font-size: 15px; font-weight: 600; cursor: pointer; color: #999; border-bottom: 2.5px solid transparent; background: none; border-top: none; border-left: none; border-right: none; transition: all 0.15s; }
+    .tab.active { color: #1D9E75; border-bottom-color: #1D9E75; }
+
+    .content { flex: 1; padding: 18px; overflow-y: auto; }
+
+    .section-label { font-size: 11px; font-weight: 700; color: #aaa; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
+    .swipe-hint { font-size: 12px; color: #bbb; text-align: right; margin-bottom: 10px; font-style: italic; }
+
+    .swipe-wrap { position: relative; overflow: hidden; border-radius: 12px; margin-bottom: 8px; }
+    .swipe-bg { position: absolute; inset: 0; background: #E24B4A; display: flex; align-items: center; padding-left: 18px; border-radius: 12px; }
+    .swipe-bg span { font-size: 14px; font-weight: 600; color: #fff; user-select: none; }
+
+    .item-row { display: flex; align-items: center; gap: 10px; padding: 13px 14px; background: #fff; border: 1px solid #efefef; border-radius: 12px; position: relative; z-index: 1; user-select: none; touch-action: pan-y; will-change: transform; }
+    .item-row.out { background: #fff5f5; border-color: #ffd5d5; }
+    .item-row.checked { opacity: 0.5; }
+    .item-row.checked .item-name { text-decoration: line-through; }
+    .item-row.snap-back { transition: transform 0.25s cubic-bezier(0.25,1,0.5,1); }
+    .item-row.snap-out { transition: transform 0.22s ease-in; }
+
+    .item-name { flex: 1; font-size: 16px; color: #1a1a1a; min-width: 0; pointer-events: none; }
+    .item-tag { font-size: 11px; padding: 3px 9px; border-radius: 20px; font-weight: 700; flex-shrink: 0; pointer-events: none; }
+    .item-tag.out-tag { background: #ffe0e0; color: #c0392b; }
+    .item-tag.needed-tag { background: #ffe0e0; color: #c0392b; }
+    .item-tag.added-tag { background: #e0f0ff; color: #1a6fb5; }
+
+    .icon-btn { width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid #e0e0e0; background: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; transition: all 0.1s; color: #999; -webkit-tap-highlight-color: transparent; }
+    .icon-btn:active { transform: scale(0.92); }
+    .icon-btn.out-active { background: #ffe0e0; border-color: #ffb3b3; color: #c0392b; }
+    .icon-btn.check-done { background: #1D9E75; border-color: #1D9E75; color: #fff; }
+
+    .divider { height: 1px; background: #f0f0f0; margin: 14px 0; }
+
+    .add-row { display: flex; gap: 10px; margin-top: 12px; }
+    .add-row input { flex: 1; padding: 11px 14px; border: 1px solid #e0e0e0; border-radius: 12px; font-size: 15px; background: #fafafa; color: #1a1a1a; outline: none; -webkit-appearance: none; }
+    .add-row input:focus { border-color: #1D9E75; background: #fff; }
+    .add-row button { padding: 11px 16px; border-radius: 12px; border: none; background: #1D9E75; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .add-row button:active { opacity: 0.85; }
+
+    .empty { text-align: center; padding: 2.5rem 1rem; color: #bbb; font-size: 15px; line-height: 1.6; }
+
+    .progress-wrap { margin-bottom: 16px; }
+    .progress-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .progress-bar { height: 5px; background: #f0f0f0; border-radius: 3px; overflow: hidden; }
+    .progress-fill { height: 100%; background: #1D9E75; border-radius: 3px; transition: width 0.3s; }
+
+    .complete-btn { width: 100%; padding: 16px; border-radius: 14px; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 20px; background: #1D9E75; border: none; color: #fff; letter-spacing: 0.01em; transition: opacity 0.15s; box-shadow: 0 4px 14px rgba(29,158,117,0.35); }
+    .complete-btn:active { opacity: 0.85; }
+
+    .secondary-btn { width: 100%; padding: 12px; border-radius: 12px; font-size: 14px; cursor: pointer; margin-top: 10px; background: none; border: 1px dashed #ddd; color: #999; }
+    .secondary-btn:active { background: #f5f5f5; }
+
+    .confirm-box { background: #f9f9f9; border: 1px solid #eee; border-radius: 16px; padding: 18px; margin-top: 16px; }
+    .confirm-box h3 { font-size: 16px; font-weight: 700; color: #1a1a1a; margin-bottom: 6px; }
+    .confirm-box p { font-size: 14px; color: #666; margin-bottom: 14px; line-height: 1.5; }
+    .confirm-items { font-size: 14px; color: #666; background: #fff; border: 1px solid #eee; border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; max-height: 140px; overflow-y: auto; }
+    .confirm-items div { padding: 4px 0; border-bottom: 1px solid #f5f5f5; }
+    .confirm-items div:last-child { border-bottom: none; }
+    .confirm-btns { display: flex; gap: 10px; }
+    .confirm-btns button { flex: 1; padding: 12px; border-radius: 12px; font-size: 15px; cursor: pointer; font-weight: 600; }
+    .btn-yes { background: #1D9E75; border: none; color: #fff; }
+    .btn-yes:active { opacity: 0.85; }
+    .btn-no { background: none; border: 1px solid #ddd; color: #666; }
+    .btn-no:active { background: #f5f5f5; }
+
+    .toast { background: #eafaf3; border: 1px solid #b2dfcc; color: #0f6e56; border-radius: 12px; padding: 13px 16px; font-size: 15px; font-weight: 600; text-align: center; margin-top: 12px; }
+
+    .status-bar { font-size: 12px; color: #bbb; padding: 8px 18px 12px; display: flex; align-items: center; gap: 6px; }
+    .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: #1D9E75; flex-shrink: 0; animation: pulse 2s infinite; }
+    .sync-dot.error { background: #e74c3c; animation: none; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    .version { font-size: 11px; color: #ddd; text-align: right; padding: 0 18px 10px; }
+
+    .loading { display: flex; align-items: center; justify-content: center; height: 200px; color: #bbb; font-size: 15px; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>Grocery Together</h1>
+    <p>Shared list — synced live</p>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('pantry')">Pantry</button>
+    <button class="tab" onclick="switchTab('shopping')">Shopping List</button>
+  </div>
+  <div id="tab-pantry" class="content"><div class="loading">Loading…</div></div>
+  <div id="tab-shopping" class="content" style="display:none"><div class="loading">Loading…</div></div>
+  <div class="status-bar"><span class="sync-dot" id="sync-dot"></span><span id="sync-status">Connecting…</span></div>
+  <div class="version">v1.0</div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDywK4omKrpvrzd79icGXRknyQiyu6CQb0",
+    authDomain: "grocery-list-22f7a.firebaseapp.com",
+    databaseURL: "https://grocery-list-22f7a-default-rtdb.firebaseio.com/",
+    projectId: "grocery-list-22f7a",
+    storageBucket: "grocery-list-22f7a.firebasestorage.app",
+    messagingSenderId: "402106682448",
+    appId: "1:402106682448:web:8cb5bc8d7640c5bdebd555"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const stateRef = ref(db, 'groceryState');
+
+  const DEFAULT_ITEMS = [
+    "Milk","Eggs","Bread","Butter","Cheese","Yogurt","Orange juice","Coffee","Tea",
+    "Chicken","Ground beef","Pasta","Rice","Olive oil","Onions","Garlic","Tomatoes",
+    "Spinach","Apples","Bananas","Potatoes","Carrots","Canned tomatoes","Cereal",
+    "Peanut butter","Jam","Toilet paper","Dish soap","Laundry detergent"
+  ];
+
+  let state = { pantryItems: [...DEFAULT_ITEMS], outOfStock: {}, cartChecked: {}, extraItems: [] };
+  let currentTab = 'pantry';
+  let showConfirm = false;
+  let showToast = false;
+  let loaded = false;
+  let localUpdate = false;
+  let dragging = null;
+  const THRESHOLD = 90;
+
+  function getPantry() { return state.pantryItems || DEFAULT_ITEMS; }
+
+  async function save() {
+    localUpdate = true;
+    try {
+      await set(stateRef, JSON.parse(JSON.stringify(state)));
+      setStatus('Saved', false);
+    } catch(e) {
+      setStatus('Sync error — check connection', true);
+    }
+    setTimeout(() => { localUpdate = false; }, 500);
+  }
+
+  function setStatus(msg, err) {
+    document.getElementById('sync-status').textContent = msg;
+    document.getElementById('sync-dot').className = 'sync-dot' + (err ? ' error' : '');
+  }
+
+  onValue(stateRef, (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      if (!localUpdate) {
+        const prev = JSON.stringify(state);
+        state = data;
+        if (!state.pantryItems) state.pantryItems = [...DEFAULT_ITEMS];
+        if (!state.extraItems) state.extraItems = [];
+        if (!state.outOfStock) state.outOfStock = {};
+        if (!state.cartChecked) state.cartChecked = {};
+        if (loaded && JSON.stringify(state) !== prev) {
+          setStatus('Updated by partner', false);
+          setTimeout(() => setStatus('Live — synced', false), 2000);
+        }
+      }
+    }
+    if (!loaded) {
+      loaded = true;
+      setStatus('Live — synced', false);
+    }
+    render();
+  }, (error) => {
+    setStatus('Connection error', true);
+  });
+
+  function switchTab(tab) {
+    currentTab = tab;
+    showConfirm = false;
+    document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', (i===0&&tab==='pantry')||(i===1&&tab==='shopping')));
+    document.getElementById('tab-pantry').style.display = tab==='pantry' ? '' : 'none';
+    document.getElementById('tab-shopping').style.display = tab==='shopping' ? '' : 'none';
+    render();
+  }
+  window.switchTab = switchTab;
+
+  function toggleOut(item) {
+    if (state.outOfStock[item]) { delete state.outOfStock[item]; delete state.cartChecked[item]; }
+    else state.outOfStock[item] = true;
+    save(); render();
+  }
+
+  function removePantryItem(item) {
+    state.pantryItems = state.pantryItems.filter(i => i !== item);
+    delete state.outOfStock[item];
+    delete state.cartChecked[item];
+    save(); render();
+  }
+
+  function addPantryItem() {
+    const inp = document.getElementById('pantry-input');
+    const val = inp.value.trim();
+    if (!val) return;
+    if (!state.pantryItems.find(i => i.toLowerCase() === val.toLowerCase())) {
+      state.pantryItems.push(val);
+      save(); render();
+    }
+    inp.value = '';
+  }
+  window.addPantryItem = addPantryItem;
+
+  function toggleCheck(item) {
+    if (state.cartChecked[item]) delete state.cartChecked[item];
+    else state.cartChecked[item] = true;
+    save(); render();
+  }
+
+  function addExtra() {
+    const inp = document.getElementById('extra-input');
+    const val = inp.value.trim();
+    if (!val) return;
+    if (!state.extraItems.find(e => e.name.toLowerCase() === val.toLowerCase())) {
+      state.extraItems.push({ name: val, id: Date.now() });
+      save(); render();
+    }
+    inp.value = '';
+  }
+  window.addExtra = addExtra;
+
+  function removeExtra(id) {
+    state.extraItems = state.extraItems.filter(e => e.id !== id);
+    delete state.cartChecked['extra_' + id];
+    save(); render();
+  }
+  window.removeExtra = removeExtra;
+
+  function toggleCheckExtra(id) {
+    const k = 'extra_' + id;
+    if (state.cartChecked[k]) delete state.cartChecked[k]; else state.cartChecked[k] = true;
+    save(); render();
+  }
+  window.toggleCheckExtra = toggleCheckExtra;
+
+  function clearCart() { state.cartChecked = {}; showConfirm = false; save(); render(); }
+  window.clearCart = clearCart;
+
+  function requestComplete() { showConfirm = true; render(); }
+  window.requestComplete = requestComplete;
+
+  function cancelComplete() { showConfirm = false; render(); }
+  window.cancelComplete = cancelComplete;
+
+  function confirmComplete() {
+    const pantry = getPantry();
+    const outItems = pantry.filter(i => state.outOfStock[i] && state.cartChecked[i]);
+    const extras = state.extraItems.filter(e => state.cartChecked['extra_' + e.id]);
+    outItems.forEach(item => { delete state.outOfStock[item]; delete state.cartChecked[item]; });
+    extras.forEach(e => { state.extraItems = state.extraItems.filter(x => x.id !== e.id); delete state.cartChecked['extra_' + e.id]; });
+    showConfirm = false; showToast = true;
+    save(); render();
+    setTimeout(() => { showToast = false; render(); }, 3000);
+  }
+  window.confirmComplete = confirmComplete;
+
+  function getCheckedItems() {
+    const pantry = getPantry();
+    return {
+      outItems: pantry.filter(i => state.outOfStock[i] && state.cartChecked[i]),
+      extras: state.extraItems.filter(e => state.cartChecked['extra_' + e.id])
+    };
+  }
+
+  function attachSwipe(row, itemName) {
+    let startX=0, startY=0, curX=0, draggingNow=false, lockAxis=null;
+
+    function onStart(e) {
+      if (dragging && dragging !== row) return;
+      const pt = e.touches ? e.touches[0] : e;
+      startX=pt.clientX; startY=pt.clientY;
+      curX=0; draggingNow=true; lockAxis=null;
+      row.classList.remove('snap-back','snap-out');
+      dragging=row;
+    }
+    function onMove(e) {
+      if (!draggingNow) return;
+      const pt = e.touches ? e.touches[0] : e;
+      const dx=pt.clientX-startX, dy=pt.clientY-startY;
+      if (!lockAxis) {
+        if (Math.abs(dx)>6||Math.abs(dy)>6)
+          lockAxis=Math.abs(dx)>Math.abs(dy)?'x':'y';
+      }
+      if (lockAxis==='y') { draggingNow=false; snapBack(); return; }
+      if (lockAxis!=='x') return;
+      e.preventDefault();
+      curX=Math.max(0,dx);
+      row.style.transform=`translateX(${curX}px)`;
+      const bg=row.parentElement.querySelector('.swipe-bg');
+      if (bg) bg.style.opacity=Math.min(curX/THRESHOLD,1);
+    }
+    function onEnd() {
+      if (!draggingNow) return;
+      draggingNow=false;
+      if (curX>=THRESHOLD) {
+        row.classList.add('snap-out');
+        row.style.transform='translateX(110%)';
+        row.addEventListener('transitionend',()=>removePantryItem(itemName),{once:true});
+      } else { snapBack(); }
+      dragging=null;
+    }
+    function snapBack() {
+      row.classList.add('snap-back');
+      row.style.transform='translateX(0)';
+      const bg=row.parentElement?row.parentElement.querySelector('.swipe-bg'):null;
+      if (bg) bg.style.opacity=0;
+      dragging=null;
+    }
+
+    row.addEventListener('mousedown',onStart);
+    row.addEventListener('touchstart',onStart,{passive:true});
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onEnd);
+    row.addEventListener('touchmove',onMove,{passive:false});
+    row.addEventListener('touchend',onEnd);
+  }
+
+  function makePantryRow(item, isOut) {
+    const wrap=document.createElement('div');
+    wrap.className='swipe-wrap';
+    const bg=document.createElement('div');
+    bg.className='swipe-bg';
+    bg.style.opacity='0';
+    bg.innerHTML=`<span>Remove from pantry</span>`;
+    const row=document.createElement('div');
+    row.className='item-row'+(isOut?' out':'');
+    row.innerHTML=`
+      <span class="item-name">${item}</span>
+      ${isOut?`<span class="item-tag out-tag">Out</span>`:''}
+      <button class="icon-btn${isOut?' out-active':''}">${isOut?'✓':'✗'}</button>`;
+    row.querySelector('.icon-btn').addEventListener('click',(e)=>{e.stopPropagation();toggleOut(item);});
+    wrap.appendChild(bg);
+    wrap.appendChild(row);
+    attachSwipe(row,item);
+    return wrap;
+  }
+
+  function render() {
+    if (currentTab==='pantry') renderPantry();
+    else renderShopping();
+  }
+
+  function renderPantry() {
+    const el=document.getElementById('tab-pantry');
+    el.innerHTML='';
+    const pantry=getPantry();
+    const outItems=pantry.filter(i=>state.outOfStock[i]);
+    const inItems=pantry.filter(i=>!state.outOfStock[i]);
+
+    if (outItems.length) {
+      const lbl=document.createElement('div');
+      lbl.className='section-label';
+      lbl.textContent=`Out of stock (${outItems.length})`;
+      el.appendChild(lbl);
+      outItems.forEach(item=>el.appendChild(makePantryRow(item,true)));
+      const div=document.createElement('div');
+      div.className='divider';
+      el.appendChild(div);
+    }
+
+    const lbl2=document.createElement('div');
+    lbl2.className='section-label';
+    lbl2.textContent='In stock — tap ✗ to mark out';
+    el.appendChild(lbl2);
+
+    const hint=document.createElement('div');
+    hint.className='swipe-hint';
+    hint.textContent='Swipe right to remove an item';
+    el.appendChild(hint);
+
+    if (inItems.length===0&&outItems.length===0) {
+      const e2=document.createElement('div');
+      e2.className='empty';
+      e2.textContent='No pantry items yet. Add one below.';
+      el.appendChild(e2);
+    } else if (inItems.length===0) {
+      const e2=document.createElement('div');
+      e2.className='empty';
+      e2.style.padding='1rem 0 0';
+      e2.textContent='Everything is out of stock!';
+      el.appendChild(e2);
+    }
+
+    inItems.forEach(item=>el.appendChild(makePantryRow(item,false)));
+
+    el.insertAdjacentHTML('beforeend',`
+      <div class="divider"></div>
+      <div class="section-label">Add pantry item</div>
+      <div class="add-row">
+        <input id="pantry-input" placeholder="e.g. Oat milk, Greek yogurt…" onkeydown="if(event.key==='Enter')addPantryItem()">
+        <button onclick="addPantryItem()">+ Add</button>
+      </div>`);
+  }
+
+  function renderShopping() {
+    const el=document.getElementById('tab-shopping');
+    const pantry=getPantry();
+    const outItems=pantry.filter(i=>state.outOfStock[i]);
+    const extras=state.extraItems||[];
+    const allCount=outItems.length+extras.length;
+    const checkedCount=outItems.filter(i=>state.cartChecked[i]).length+extras.filter(e=>state.cartChecked['extra_'+e.id]).length;
+
+    let html='';
+    if (allCount>0) {
+      const pct=Math.round((checkedCount/allCount)*100);
+      html+=`<div class="progress-wrap">
+        <div class="progress-meta">
+          <span class="section-label" style="margin:0;">${checkedCount} of ${allCount} in cart</span>
+          <span style="font-size:13px;font-weight:700;color:#1D9E75;">${pct}%</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    }
+
+    if (outItems.length) {
+      html+=`<div class="section-label">From pantry</div>`;
+      outItems.forEach(item=>{
+        const checked=!!state.cartChecked[item];
+        html+=`<div class="item-row${checked?' checked':''}" style="margin-bottom:8px;">
+          <button class="icon-btn${checked?' check-done':''}" onclick="toggleCheck('${item.replace(/'/g,"\\'")}')">✓</button>
+          <span class="item-name">${item}</span>
+          <span class="item-tag needed-tag">Needed</span>
+        </div>`;
+      });
+      if (extras.length) html+=`<div class="divider"></div>`;
+    }
+
+    if (extras.length) {
+      html+=`<div class="section-label">Added items</div>`;
+      extras.forEach(e=>{
+        const checked=!!state.cartChecked['extra_'+e.id];
+        html+=`<div class="item-row${checked?' checked':''}" style="margin-bottom:8px;">
+          <button class="icon-btn${checked?' check-done':''}" onclick="toggleCheckExtra(${e.id})">✓</button>
+          <span class="item-name">${e.name}</span>
+          <span class="item-tag added-tag">Added</span>
+          <button class="icon-btn" style="border-color:transparent;color:#ccc;" onclick="removeExtra(${e.id})">✕</button>
+        </div>`;
+      });
+    }
+
+    if (allCount===0) html+=`<div class="empty">Your list is clear!<br>Mark pantry items as out of stock,<br>or add a one-off item below.</div>`;
+
+    html+=`<div class="divider"></div>
+    <div class="section-label">Add one-off item</div>
+    <div class="add-row">
+      <input id="extra-input" placeholder="e.g. Birthday cake, wine…" onkeydown="if(event.key==='Enter')addExtra()">
+      <button onclick="addExtra()">+ Add</button>
+    </div>`;
+
+    if (checkedCount>0&&!showConfirm) {
+      html+=`<button class="complete-btn" onclick="requestComplete()">Mark shopping as complete</button>`;
+      html+=`<button class="secondary-btn" onclick="clearCart()">Clear checkmarks only</button>`;
+    }
+
+    if (showConfirm) {
+      const {outItems:ci,extras:ce}=getCheckedItems();
+      const all=[...ci,...ce.map(e=>e.name)];
+      html+=`<div class="confirm-box">
+        <h3>Are you sure you're done shopping?</h3>
+        <p>${all.length} checked item${all.length!==1?'s':''} will be marked as back in stock and removed from the list:</p>
+        <div class="confirm-items">${all.map(n=>`<div>✓ ${n}</div>`).join('')}</div>
+        <div class="confirm-btns">
+          <button class="btn-no" onclick="cancelComplete()">Go back</button>
+          <button class="btn-yes" onclick="confirmComplete()">Yes, all done!</button>
+        </div>
+      </div>`;
+    }
+
+    if (showToast) html+=`<div class="toast">Shopping trip complete — pantry updated!</div>`;
+
+    el.innerHTML=html;
+  }
+
+  window.toggleCheck = toggleCheck;
+</script>
+</body>
+</html>
