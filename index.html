@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Grocery Together" />
+  <meta name="theme-color" content="#ffffff" />
+  <title>Grocery Together</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; background: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #1a1a1a; }
+    .app { max-width: 480px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; padding-bottom: env(safe-area-inset-bottom); }
+    .header { padding: 56px 18px 0; background: #fff; }
+    .header h1 { font-size: 28px; font-weight: 700; color: #1a1a1a; letter-spacing: -0.5px; }
+    .header p { font-size: 14px; color: #888; margin-top: 3px; }
+    .tabs { display: flex; border-bottom: 1px solid #e8e8e8; margin-top: 18px; background: #fff; position: sticky; top: 0; z-index: 10; }
+    .tab { flex: 1; padding: 12px; text-align: center; font-size: 15px; font-weight: 600; cursor: pointer; color: #999; border-bottom: 2.5px solid transparent; background: none; border-top: none; border-left: none; border-right: none; transition: all 0.15s; }
+    .tab.active { color: #1D9E75; border-bottom-color: #1D9E75; }
+    .content { flex: 1; padding: 18px; overflow-y: auto; }
+    .category-block { margin-bottom: 20px; }
+    .category-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .category-emoji { font-size: 16px; }
+    .category-title { font-size: 12px; font-weight: 700; color: #aaa; letter-spacing: 0.08em; text-transform: uppercase; }
+    .category-count { font-size: 11px; color: #ccc; font-weight: 600; }
+    .swipe-hint { font-size: 12px; color: #bbb; text-align: right; margin-bottom: 10px; font-style: italic; }
+    .swipe-wrap { position: relative; overflow: hidden; border-radius: 12px; margin-bottom: 8px; }
+    .swipe-bg { position: absolute; inset: 0; background: #E24B4A; display: flex; align-items: center; padding-left: 18px; border-radius: 12px; }
+    .swipe-bg span { font-size: 14px; font-weight: 600; color: #fff; user-select: none; }
+    .item-row { display: flex; align-items: center; gap: 10px; padding: 13px 14px; background: #fff; border: 1px solid #efefef; border-radius: 12px; position: relative; z-index: 1; user-select: none; touch-action: pan-y; will-change: transform; }
+    .item-row.out { background: #fff5f5; border-color: #ffd5d5; }
+    .item-row.checked { opacity: 0.5; }
+    .item-row.checked .item-name { text-decoration: line-through; }
+    .item-row.snap-back { transition: transform 0.25s cubic-bezier(0.25,1,0.5,1); }
+    .item-row.snap-out { transition: transform 0.22s ease-in; }
+    .item-name { flex: 1; font-size: 16px; color: #1a1a1a; min-width: 0; pointer-events: none; }
+    .item-tag { font-size: 11px; padding: 3px 9px; border-radius: 20px; font-weight: 700; flex-shrink: 0; pointer-events: none; }
+    .item-tag.out-tag { background: #ffe0e0; color: #c0392b; }
+    .item-tag.needed-tag { background: #ffe0e0; color: #c0392b; }
+    .item-tag.added-tag { background: #e0f0ff; color: #1a6fb5; }
+    .icon-btn { width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid #e0e0e0; background: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; transition: all 0.1s; color: #999; }
+    .icon-btn:active { transform: scale(0.92); }
+    .icon-btn.out-active { background: #ffe0e0; border-color: #ffb3b3; color: #c0392b; }
+    .icon-btn.check-done { background: #1D9E75; border-color: #1D9E75; color: #fff; }
+    .divider { height: 1px; background: #f0f0f0; margin: 14px 0; }
+    .add-section { background: #f9f9f9; border: 1px solid #eee; border-radius: 16px; padding: 16px; margin-top: 8px; }
+    .add-section label { font-size: 12px; font-weight: 700; color: #aaa; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 8px; }
+    .add-section input { width: 100%; padding: 11px 14px; border: 1px solid #e0e0e0; border-radius: 12px; font-size: 15px; background: #fff; color: #1a1a1a; outline: none; -webkit-appearance: none; margin-bottom: 10px; }
+    .add-section input:focus { border-color: #1D9E75; }
+    .add-section select { width: 100%; padding: 11px 14px; border: 1px solid #e0e0e0; border-radius: 12px; font-size: 15px; background: #fff; color: #1a1a1a; outline: none; margin-bottom: 10px; }
+    .add-section button { width: 100%; padding: 12px; border-radius: 12px; border: none; background: #1D9E75; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; }
+    .add-section button:active { opacity: 0.85; }
+    .empty { text-align: center; padding: 1.5rem 1rem; color: #bbb; font-size: 15px; line-height: 1.6; }
+    .empty-cat { text-align: center; padding: 0.5rem 1rem; color: #ddd; font-size: 13px; font-style: italic; }
+    .progress-wrap { margin-bottom: 16px; }
+    .progress-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .progress-bar { height: 5px; background: #f0f0f0; border-radius: 3px; overflow: hidden; }
+    .progress-fill { height: 100%; background: #1D9E75; border-radius: 3px; transition: width 0.3s; }
+    .complete-btn { width: 100%; padding: 16px; border-radius: 14px; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 20px; background: #1D9E75; border: none; color: #fff; letter-spacing: 0.01em; transition: opacity 0.15s; box-shadow: 0 4px 14px rgba(29,158,117,0.35); }
+    .complete-btn:active { opacity: 0.85; }
+    .secondary-btn { width: 100%; padding: 12px; border-radius: 12px; font-size: 14px; cursor: pointer; margin-top: 10px; background: none; border: 1px dashed #ddd; color: #999; }
+    .secondary-btn:active { background: #f5f5f5; }
+    .confirm-box { background: #f9f9f9; border: 1px solid #eee; border-radius: 16px; padding: 18px; margin-top: 16px; }
+    .confirm-box h3 { font-size: 16px; font-weight: 700; color: #1a1a1a; margin-bottom: 6px; }
+    .confirm-box p { font-size: 14px; color: #666; margin-bottom: 14px; line-height: 1.5; }
+    .confirm-items { font-size: 14px; color: #666; background: #fff; border: 1px solid #eee; border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; max-height: 140px; overflow-y: auto; }
+    .confirm-items div { padding: 4px 0; border-bottom: 1px solid #f5f5f5; }
+    .confirm-items div:last-child { border-bottom: none; }
+    .confirm-btns { display: flex; gap: 10px; }
+    .confirm-btns button { flex: 1; padding: 12px; border-radius: 12px; font-size: 15px; cursor: pointer; font-weight: 600; }
+    .btn-yes { background: #1D9E75; border: none; color: #fff; }
+    .btn-yes:active { opacity: 0.85; }
+    .btn-no { background: none; border: 1px solid #ddd; color: #666; }
+    .btn-no:active { background: #f5f5f5; }
+    .toast { background: #eafaf3; border: 1px solid #b2dfcc; color: #0f6e56; border-radius: 12px; padding: 13px 16px; font-size: 15px; font-weight: 600; text-align: center; margin-top: 12px; }
+    .status-bar { font-size: 12px; color: #bbb; padding: 8px 18px 12px; display: flex; align-items: center; gap: 6px; }
+    .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: #1D9E75; flex-shrink: 0; animation: pulse 2s infinite; }
+    .sync-dot.error { background: #e74c3c; animation: none; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .version { font-size: 11px; color: #ddd; text-align: right; padding: 0 18px 10px; }
+    .loading { display: flex; align-items: center; justify-content: center; height: 200px; color: #bbb; font-size: 15px; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>Grocery Together</h1>
+    <p>Shared list — synced live</p>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('pantry')">Pantry</button>
+    <button class="tab" onclick="switchTab('shopping')">Shopping List</button>
+  </div>
+  <div id="tab-pantry" class="content"><div class="loading">Loading…</div></div>
+  <div id="tab-shopping" class="content" style="display:none"><div class="loading">Loading…</div></div>
+  <div class="status-bar"><span class="sync-dot" id="sync-dot"></span><span id="sync-status">Connecting…</span></div>
+  <div class="version">v1.1</div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDywK4omKrpvrzd79icGXRknyQiyu6CQb0",
+    authDomain: "grocery-list-22f7a.firebaseapp.com",
+    databaseURL: "https://grocery-list-22f7a-default-rtdb.firebaseio.com/",
+    projectId: "grocery-list-22f7a",
+    storageBucket: "grocery-list-22f7a.firebasestorage.app",
+    messagingSenderId: "402106682448",
+    appId: "1:402106682448:web:8cb5bc8d7640c5bdebd555"
+  };
+
+  const CATEGORIES = [
+    { id: 'produce',   label: 'Produce',     emoji: '🥦' },
+    { id: 'meat',      label: 'Meat',        emoji: '🥩' },
+    { id: 'dairy',     label: 'Dairy',       emoji: '🧀' },
+    { id: 'dry_goods', label: 'Dry Goods',   emoji: '🌾' },
+    { id: 'house',     label: 'House Items', emoji: '🧹' },
+    { id: 'other',     label: 'Other',       emoji: '🛒' },
+  ];
+
+  const DEFAULT_ITEMS = [
+    { name: 'Milk',              category: 'dairy'     },
+    { name: 'Eggs',              category: 'dairy'     },
+    { name: 'Butter',            category: 'dairy'     },
+    { name: 'Cheese',            category: 'dairy'     },
+    { name: 'Yogurt',            category: 'dairy'     },
+    { name: 'Chicken',           category: 'meat'      },
+    { name: 'Ground beef',       category: 'meat'      },
+    { name: 'Apples',            category: 'produce'   },
+    { name: 'Bananas',           category: 'produce'   },
+    { name: 'Tomatoes',          category: 'produce'   },
+    { name: 'Spinach',           category: 'produce'   },
+    { name: 'Onions',            category: 'produce'   },
+    { name: 'Garlic',            category: 'produce'   },
+    { name: 'Potatoes',          category: 'produce'   },
+    { name: 'Carrots',           category: 'produce'   },
+    { name: 'Bread',             category: 'dry_goods' },
+    { name: 'Pasta',             category: 'dry_goods' },
+    { name: 'Rice',              category: 'dry_goods' },
+    { name: 'Olive oil',         category: 'dry_goods' },
+    { name: 'Canned tomatoes',   category: 'dry_goods' },
+    { name: 'Cereal',            category: 'dry_goods' },
+    { name: 'Peanut butter',     category: 'dry_goods' },
+    { name: 'Jam',               category: 'dry_goods' },
+    { name: 'Orange juice',      category: 'dry_goods' },
+    { name: 'Coffee',            category: 'dry_goods' },
+    { name: 'Tea',               category: 'dry_goods' },
+    { name: 'Toilet paper',      category: 'house'     },
+    { name: 'Dish soap',         category: 'house'     },
+    { name: 'Laundry detergent', category: 'house'     },
+  ];
+
+  const CATEGORY_KEYWORDS = {
+    produce:   ['apple','banana','orange','grape','berry','lemon','lime','mango','peach','pear','plum','melon','fruit','tomato','lettuce','spinach','kale','broccoli','carrot','celery','cucumber','pepper','onion','garlic','potato','mushroom','zucchini','vegetable','herb','ginger','avocado','corn','pea','bean','cabbage','cauliflower'],
+    meat:      ['chicken','beef','pork','lamb','turkey','bacon','sausage','steak','mince','ground','fish','salmon','tuna','shrimp','prawn','seafood','meat','ham','salami','pepperoni'],
+    dairy:     ['milk','egg','cheese','butter','yogurt','cream','cheddar','mozzarella','brie','feta','parmesan','dairy','sour cream','cottage'],
+    dry_goods: ['bread','pasta','rice','flour','sugar','cereal','oat','granola','oil','vinegar','sauce','jam','honey','peanut','almond','coffee','tea','juice','water','soda','can','tin','soup','stock','cracker','chip','chocolate','biscuit','cookie','spice','salt','pepper','condiment','dressing','mayonnaise','ketchup','mustard'],
+    house:     ['toilet','soap','detergent','cleaner','bleach','sponge','tissue','paper','towel','bin','bag','foil','wrap','batteries','candle','washing','shampoo','conditioner','toothpaste','toothbrush','deodorant','razor','cleaning'],
+  };
+
+  function guessCategory(name) {
+    const lower = name.toLowerCase();
+    for (const [cat, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+      if (keywords.some(k => lower.includes(k))) return cat;
+    }
+    return 'other';
+  }
+
+  const fbApp = initializeApp(firebaseConfig);
+  const db = getDatabase(fbApp);
+  const stateRef = ref(db, 'groceryState');
+
+  let state = { pantryItems: [], outOfStock: {}, cartChecked: {}, extraItems: [] };
+  let currentTab = 'pantry';
+  let showConfirm = false;
+  let showToast = false;
+  let loaded = false;
+  let localUpdate = false;
+  let dragging = null;
+  const THRESHOLD = 90;
+
+  function setStatus(msg, err) {
+    document.getElementById('sync-status').textContent = msg;
+    document.getElementById('sync-dot').className = 'sync-dot' + (err ? ' error' : '');
+  }
+
+  onValue(stateRef, (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      if (!localUpdate) {
+        state = data;
+        if (!state.pantryItems || state.pantryItems.length === 0) state.pantryItems = [...DEFAULT_ITEMS];
+        if (!state.extraItems) state.extraItems = [];
+        if (!state.outOfStock) state.outOfStock = {};
+        if (!state.cartChecked) state.cartChecked = {};
+        state.pantryItems = state.pantryItems.map(i => typeof i === 'string' ? { name: i, category: guessCategory(i) } : i);
+        state.extraItems = state.extraItems.map(e => e.category ? e : { ...e, category: guessCategory(e.name) });
+        if (loaded) {
+          setStatus('Updated by partner', false);
+          setTimeout(() => setStatus('Live — synced', false), 2000);
+        }
+      }
+    } else {
+      state = { pantryItems: [...DEFAULT_ITEMS], outOfStock: {}, cartChecked: {}, extraItems: [] };
+    }
+    if (!loaded) { loaded = true; setStatus('Live — synced', false); }
+    render();
+  }, () => setStatus('Connection error', true));
+
+  async function save() {
+    localUpdate = true;
+    try {
+      await set(stateRef, JSON.parse(JSON.stringify(state)));
+      setStatus('Saved', false);
+    } catch(e) { setStatus('Sync error', true); }
+    setTimeout(() => { localUpdate = false; }, 500);
+  }
+
+  function switchTab(tab) {
+    currentTab = tab; showConfirm = false;
+    document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active',(i===0&&tab==='pantry')||(i===1&&tab==='shopping')));
+    document.getElementById('tab-pantry').style.display = tab==='pantry' ? '' : 'none';
+    document.getElementById('tab-shopping').style.display = tab==='shopping' ? '' : 'none';
+    render();
+  }
+  window.switchTab = switchTab;
+
+  function toggleOut(itemName) {
+    if (state.outOfStock[itemName]) { delete state.outOfStock[itemName]; delete state.cartChecked[itemName]; }
+    else state.outOfStock[itemName] = true;
+    save(); render();
+  }
+
+  function removePantryItem(itemName) {
+    state.pantryItems = state.pantryItems.filter(i => i.name !== itemName);
+    delete state.outOfStock[itemName]; delete state.cartChecked[itemName];
+    save(); render();
+  }
+
+  function addPantryItem() {
+    const nameInp = document.getElementById('pantry-input');
+    const catSel = document.getElementById('pantry-cat');
+    const val = nameInp.value.trim();
+    if (!val) return;
+    const cat = catSel ? catSel.value : guessCategory(val);
+    if (!state.pantryItems.find(i => i.name.toLowerCase() === val.toLowerCase())) {
+      state.pantryItems.push({ name: val, category: cat });
+      save(); render();
+    }
+    nameInp.value = '';
+  }
+  window.addPantryItem = addPantryItem;
+
+  function toggleCheck(itemName) {
+    if (state.cartChecked[itemName]) delete state.cartChecked[itemName];
+    else state.cartChecked[itemName] = true;
+    save(); render();
+  }
+  window.toggleCheck = toggleCheck;
+
+  function addExtra() {
+    const inp = document.getElementById('extra-input');
+    const val = inp.value.trim();
+    if (!val) return;
+    if (!state.extraItems.find(e => e.name.toLowerCase() === val.toLowerCase())) {
+      state.extraItems.push({ name: val, id: Date.now(), category: guessCategory(val) });
+      save(); render();
+    }
+    inp.value = '';
+  }
+  window.addExtra = addExtra;
+
+  function removeExtra(id) {
+    state.extraItems = state.extraItems.filter(e => e.id !== id);
+    delete state.cartChecked['extra_' + id];
+    save(); render();
+  }
+  window.removeExtra = removeExtra;
+
+  function toggleCheckExtra(id) {
+    const k = 'extra_' + id;
+    if (state.cartChecked[k]) delete state.cartChecked[k]; else state.cartChecked[k] = true;
+    save(); render();
+  }
+  window.toggleCheckExtra = toggleCheckExtra;
+
+  function clearCart() { state.cartChecked = {}; showConfirm = false; save(); render(); }
+  window.clearCart = clearCart;
+
+  function requestComplete() { showConfirm = true; render(); }
+  window.requestComplete = requestComplete;
+
+  function cancelComplete() { showConfirm = false; render(); }
+  window.cancelComplete = cancelComplete;
+
+  function confirmComplete() {
+    const outItems = state.pantryItems.filter(i => state.outOfStock[i.name] && state.cartChecked[i.name]);
+    const extras = state.extraItems.filter(e => state.cartChecked['extra_' + e.id]);
+    outItems.forEach(i => { delete state.outOfStock[i.name]; delete state.cartChecked[i.name]; });
+    extras.forEach(e => { state.extraItems = state.extraItems.filter(x => x.id !== e.id); delete state.cartChecked['extra_' + e.id]; });
+    showConfirm = false; showToast = true;
+    save(); render();
+    setTimeout(() => { showToast = false; render(); }, 3000);
+  }
+  window.confirmComplete = confirmComplete;
+
+  function getCheckedItems() {
+    return {
+      outItems: state.pantryItems.filter(i => state.outOfStock[i.name] && state.cartChecked[i.name]),
+      extras: state.extraItems.filter(e => state.cartChecked['extra_' + e.id])
+    };
+  }
+
+  function attachSwipe(row, itemName) {
+    let startX=0,startY=0,curX=0,draggingNow=false,lockAxis=null;
+    function onStart(e) {
+      if (dragging&&dragging!==row) return;
+      const pt=e.touches?e.touches[0]:e;
+      startX=pt.clientX;startY=pt.clientY;curX=0;draggingNow=true;lockAxis=null;
+      row.classList.remove('snap-back','snap-out');dragging=row;
+    }
+    function onMove(e) {
+      if (!draggingNow) return;
+      const pt=e.touches?e.touches[0]:e;
+      const dx=pt.clientX-startX,dy=pt.clientY-startY;
+      if (!lockAxis){if(Math.abs(dx)>6||Math.abs(dy)>6)lockAxis=Math.abs(dx)>Math.abs(dy)?'x':'y';}
+      if (lockAxis==='y'){draggingNow=false;snapBack();return;}
+      if (lockAxis!=='x') return;
+      e.preventDefault();curX=Math.max(0,dx);
+      row.style.transform=`translateX(${curX}px)`;
+      const bg=row.parentElement.querySelector('.swipe-bg');
+      if(bg)bg.style.opacity=Math.min(curX/THRESHOLD,1);
+    }
+    function onEnd() {
+      if (!draggingNow) return;draggingNow=false;
+      if (curX>=THRESHOLD){
+        row.classList.add('snap-out');row.style.transform='translateX(110%)';
+        row.addEventListener('transitionend',()=>removePantryItem(itemName),{once:true});
+      } else {snapBack();}
+      dragging=null;
+    }
+    function snapBack() {
+      row.classList.add('snap-back');row.style.transform='translateX(0)';
+      const bg=row.parentElement?row.parentElement.querySelector('.swipe-bg'):null;
+      if(bg)bg.style.opacity=0;dragging=null;
+    }
+    row.addEventListener('mousedown',onStart);
+    row.addEventListener('touchstart',onStart,{passive:true});
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onEnd);
+    row.addEventListener('touchmove',onMove,{passive:false});
+    row.addEventListener('touchend',onEnd);
+  }
+
+  function makePantryRow(item, isOut) {
+    const wrap=document.createElement('div');wrap.className='swipe-wrap';
+    const bg=document.createElement('div');bg.className='swipe-bg';bg.style.opacity='0';
+    bg.innerHTML=`<span>Remove from pantry</span>`;
+    const row=document.createElement('div');row.className='item-row'+(isOut?' out':'');
+    row.innerHTML=`
+      <span class="item-name">${item.name}</span>
+      ${isOut?`<span class="item-tag out-tag">Out</span>`:''}
+      <button class="icon-btn${isOut?' out-active':''}">${isOut?'✓':'✗'}</button>`;
+    row.querySelector('.icon-btn').addEventListener('click',(e)=>{e.stopPropagation();toggleOut(item.name);});
+    wrap.appendChild(bg);wrap.appendChild(row);
+    attachSwipe(row,item.name);
+    return wrap;
+  }
+
+  function render() {
+    if (currentTab==='pantry') renderPantry();
+    else renderShopping();
+  }
+
+  function renderPantry() {
+    const el=document.getElementById('tab-pantry');
+    el.innerHTML='';
+    const outItems=state.pantryItems.filter(i=>state.outOfStock[i.name]);
+    const inItems=state.pantryItems.filter(i=>!state.outOfStock[i.name]);
+
+    if (outItems.length) {
+      const outHead=document.createElement('div');outHead.className='category-header';
+      outHead.innerHTML=`<span style="font-size:12px;font-weight:700;color:#c0392b;letter-spacing:0.08em;text-transform:uppercase;">Out of stock (${outItems.length})</span>`;
+      el.appendChild(outHead);
+      CATEGORIES.forEach(cat=>{
+        const catOut=outItems.filter(i=>i.category===cat.id);
+        if(!catOut.length) return;
+        const block=document.createElement('div');block.className='category-block';
+        block.innerHTML=`<div class="category-header"><span class="category-emoji">${cat.emoji}</span><span class="category-title">${cat.label}</span></div>`;
+        catOut.forEach(item=>block.appendChild(makePantryRow(item,true)));
+        el.appendChild(block);
+      });
+      const div=document.createElement('div');div.className='divider';el.appendChild(div);
+    }
+
+    const hint=document.createElement('div');hint.className='swipe-hint';
+    hint.textContent='Swipe right to remove an item';el.appendChild(hint);
+
+    if (inItems.length===0&&outItems.length===0) {
+      const e2=document.createElement('div');e2.className='empty';
+      e2.textContent='No pantry items yet. Add one below.';el.appendChild(e2);
+    }
+
+    CATEGORIES.forEach(cat=>{
+      const catItems=inItems.filter(i=>i.category===cat.id);
+      const block=document.createElement('div');block.className='category-block';
+      block.innerHTML=`<div class="category-header"><span class="category-emoji">${cat.emoji}</span><span class="category-title">${cat.label}</span><span class="category-count">${catItems.length} item${catItems.length!==1?'s':''}</span></div>`;
+      if(catItems.length===0){
+        block.insertAdjacentHTML('beforeend','<div class="empty-cat">Nothing here</div>');
+      } else {
+        catItems.forEach(item=>block.appendChild(makePantryRow(item,false)));
+      }
+      el.appendChild(block);
+    });
+
+    el.insertAdjacentHTML('beforeend',`
+      <div class="divider"></div>
+      <div class="add-section">
+        <label>Add pantry item</label>
+        <input id="pantry-input" placeholder="Item name…" onkeydown="if(event.key==='Enter')addPantryItem()">
+        <select id="pantry-cat">
+          ${CATEGORIES.map(c=>`<option value="${c.id}">${c.emoji} ${c.label}</option>`).join('')}
+        </select>
+        <button onclick="addPantryItem()">+ Add to pantry</button>
+      </div>`);
+  }
+
+  function renderShopping() {
+    const el=document.getElementById('tab-shopping');
+    const outItems=state.pantryItems.filter(i=>state.outOfStock[i.name]);
+    const extras=state.extraItems||[];
+    const allCount=outItems.length+extras.length;
+    const checkedCount=outItems.filter(i=>state.cartChecked[i.name]).length+extras.filter(e=>state.cartChecked['extra_'+e.id]).length;
+
+    let html='';
+    if (allCount>0) {
+      const pct=Math.round((checkedCount/allCount)*100);
+      html+=`<div class="progress-wrap">
+        <div class="progress-meta">
+          <span style="font-size:11px;font-weight:700;color:#aaa;letter-spacing:0.08em;text-transform:uppercase;">${checkedCount} of ${allCount} in cart</span>
+          <span style="font-size:13px;font-weight:700;color:#1D9E75;">${pct}%</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    }
+
+    if (outItems.length) {
+      CATEGORIES.forEach(cat=>{
+        const catItems=outItems.filter(i=>i.category===cat.id);
+        if(!catItems.length) return;
+        html+=`<div class="category-block">
+          <div class="category-header"><span class="category-emoji">${cat.emoji}</span><span class="category-title">${cat.label}</span></div>`;
+        catItems.forEach(item=>{
+          const checked=!!state.cartChecked[item.name];
+          html+=`<div class="item-row${checked?' checked':''}" style="margin-bottom:8px;">
+            <button class="icon-btn${checked?' check-done':''}" onclick="toggleCheck('${item.name.replace(/'/g,"\\'")}')">✓</button>
+            <span class="item-name">${item.name}</span>
+            <span class="item-tag needed-tag">Needed</span>
+          </div>`;
+        });
+        html+=`</div>`;
+      });
+    }
+
+    if (extras.length) {
+      const byCategory={};
+      extras.forEach(e=>{const c=e.category||'other';if(!byCategory[c])byCategory[c]=[];byCategory[c].push(e);});
+      CATEGORIES.forEach(cat=>{
+        const catExtras=byCategory[cat.id]||[];
+        if(!catExtras.length) return;
+        html+=`<div class="category-block">
+          <div class="category-header"><span class="category-emoji">${cat.emoji}</span><span class="category-title">${cat.label}</span><span class="category-count" style="color:#1a6fb5;">one-off</span></div>`;
+        catExtras.forEach(e=>{
+          const checked=!!state.cartChecked['extra_'+e.id];
+          html+=`<div class="item-row${checked?' checked':''}" style="margin-bottom:8px;">
+            <button class="icon-btn${checked?' check-done':''}" onclick="toggleCheckExtra(${e.id})">✓</button>
+            <span class="item-name">${e.name}</span>
+            <span class="item-tag added-tag">Added</span>
+            <button class="icon-btn" style="border-color:transparent;color:#ccc;" onclick="removeExtra(${e.id})">✕</button>
+          </div>`;
+        });
+        html+=`</div>`;
+      });
+    }
+
+    if (allCount===0) html+=`<div class="empty">Your list is clear!<br>Mark pantry items as out of stock,<br>or add a one-off item below.</div>`;
+
+    html+=`<div class="divider"></div>
+    <div class="add-section">
+      <label>Add one-off item</label>
+      <input id="extra-input" placeholder="e.g. Birthday cake, wine…" onkeydown="if(event.key==='Enter')addExtra()">
+      <button onclick="addExtra()">+ Add to list</button>
+    </div>`;
+
+    if (checkedCount>0&&!showConfirm) {
+      html+=`<button class="complete-btn" onclick="requestComplete()">Mark shopping as complete</button>`;
+      html+=`<button class="secondary-btn" onclick="clearCart()">Clear checkmarks only</button>`;
+    }
+
+    if (showConfirm) {
+      const {outItems:ci,extras:ce}=getCheckedItems();
+      const all=[...ci.map(i=>i.name),...ce.map(e=>e.name)];
+      html+=`<div class="confirm-box">
+        <h3>Are you sure you're done shopping?</h3>
+        <p>${all.length} checked item${all.length!==1?'s':''} will be marked as back in stock and removed from the list:</p>
+        <div class="confirm-items">${all.map(n=>`<div>✓ ${n}</div>`).join('')}</div>
+        <div class="confirm-btns">
+          <button class="btn-no" onclick="cancelComplete()">Go back</button>
+          <button class="btn-yes" onclick="confirmComplete()">Yes, all done!</button>
+        </div>
+      </div>`;
+    }
+
+    if (showToast) html+=`<div class="toast">Shopping trip complete — pantry updated!</div>`;
+    el.innerHTML=html;
+  }
+</script>
+</body>
+</html>
